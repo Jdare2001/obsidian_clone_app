@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../Models/note.dart';
 import '../Models/vault.dart';
@@ -90,8 +91,28 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool> _ensureStoragePermission() async {
+    if (!Platform.isAndroid) return true;
+    // For Android 11+ we may need MANAGE_EXTERNAL_STORAGE
+    if (await Permission.storage.isGranted) return true;
+    if (await Permission.storage.request().isGranted) return true;
+    // Try requesting manage external storage (Android 11+)
+    if (await Permission.manageExternalStorage.isGranted) return true;
+    if (await Permission.manageExternalStorage.request().isGranted) return true;
+    return false;
+  }
+
   Future<void> _createNewFolder() async {
     if (currentFolder == null) return;
+
+    if (!await _ensureStoragePermission()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Storage permission required to create folders."),
+        ),
+      );
+      return;
+    }
 
     final controller = TextEditingController();
     final folderName = await showDialog<String>(
@@ -140,6 +161,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (currentFolder == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please select a folder first.")),
+      );
+      return;
+    }
+
+    if (!await _ensureStoragePermission()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Storage permission required to create notes."),
+        ),
       );
       return;
     }
